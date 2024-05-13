@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seashell Collector</title>
+    <style>
+        body, html { height: 100%; margin: 0; overflow: hidden; }
+        canvas { background-color: #87CEEB; }
+    </style>
+</head>
+<body>
+    <canvas></canvas>
+    <script>
+        const canvas = document.querySelector('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let player = { x: canvas.width / 2, y: canvas.height / 2, size: 30, color: 'red', speed: 5 };
+        let targetX = player.x;
+        let targetY = player.y;
+        let seashells = [];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            targetX = player.x;
+            targetY = player.y;
+            redrawGame();
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+        }
+
+        function drawSeashells() {
+            seashells.forEach(shell => {
+                ctx.fillStyle = shell.color;
+                ctx.fillRect(shell.x, shell.y, shell.size, shell.size);
+            });
+        }
+
+        function redrawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            drawSeashells();
+        }
+
+        function movePlayer() {
+            let dx = targetX - player.x;
+            let dy = targetY - player.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > player.speed) {
+                player.x += (dx / distance) * player.speed;
+                player.y += (dy / distance) * player.speed;
+            } else {
+                player.x = targetX;
+                player.y = targetY;
+            }
+
+            collectSeashells();
+            redrawGame();
+
+            if (player.x !== targetX || player.y !== targetY) {
+                requestAnimationFrame(movePlayer);
+            }
+        }
+
+        function collectSeashells() {
+            seashells = seashells.filter(shell => {
+                return !(player.x < shell.x + shell.size &&
+                         player.x + player.size > shell.x &&
+                         player.y < shell.y + shell.size &&
+                         player.y + player.size > shell.y);
+            });
+        }
+
+        function spawnSeashell() {
+            const rarity = Math.random() < 0.1 ? 'rare' : 'common';
+            const shell = {
+                x: Math.random() * (canvas.width - 20),
+                y: Math.random() * (canvas.height - 20),
+                size: 20,
+                color: rarity === 'rare' ? 'blue' : 'yellow',
+                rarity: rarity
+            };
+            seashells.push(shell);
+            setTimeout(() => {
+                seashells = seashells.filter(s => s !== shell);
+                redrawGame();
+            }, rarity === 'rare' ? 5000 : 10000); // Rare shells last 5 seconds, common ones 10 seconds
+            redrawGame();
+        }
+
+        function setTarget(e) {
+            targetX = e.offsetX - player.size / 2;
+            targetY = e.offsetY - player.size / 2;
+            movePlayer();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        canvas.addEventListener('mousedown', setTarget);
+        canvas.addEventListener('touchstart', e => {
+            targetX = e.touches[0].pageX - player.size / 2;
+            targetY = e.touches[0].pageY - player.size / 2;
+            movePlayer();
+            e.preventDefault();
+        });
+
+        setInterval(spawnSeashell, 3000); // Spawn a new seashell every 3 seconds
+        resizeCanvas(); // Initial setup and to adjust when page loads
+
+    </script>
+</body>
+</html>
