@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seashell Collector</title>
+    <style>
+        body, html { height: 100%; margin: 0; overflow: hidden; }
+        canvas { background-color: #87CEEB; } /* Default color will show if the image fails to load */
+    </style>
+</head>
+<body>
+    <canvas></canvas>
+    <script>
+        const canvas = document.querySelector('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let images = {}; // Object to store loaded images
+        let seashells = [];
+        let backgroundSprite = 'images/sand.png';
+        let playerSprite = 'images/player_1.png'; // Example player sprite, adjust as needed
+
+        // Function to load an image
+        function loadImage(path, callback) {
+            let img = new Image();
+            img.onload = () => callback(img);
+            img.onerror = () => {
+                console.error('Failed to load image at ' + path);
+            };
+            img.src = path;
+        }
+
+        // Load multiple images and call a function when all are loaded
+        function loadImages(paths, callback) {
+            let imgs = {};
+            let loaded = 0;
+            Object.keys(paths).forEach(key => {
+                loadImage(paths[key], img => {
+                    imgs[key] = img;
+                    loaded++;
+                    if (loaded === Object.keys(paths).length) callback(imgs);
+                });
+            });
+        }
+
+        function setupGame(imgs) {
+            images = imgs;
+            initGame();
+        }
+
+        function drawBackground() {
+            ctx.drawImage(images.background, 0, 0, canvas.width, canvas.height);
+        }
+
+        function drawPlayer() {
+            ctx.drawImage(images.player, player.x, player.y, player.size, player.size);
+        }
+
+        function drawSeashells() {
+            seashells.forEach(shell => {
+                ctx.drawImage(images[shell.image], shell.x, shell.y, shell.size, shell.size);
+            });
+        }
+
+        function spawnSeashell() {
+            const rarity = Math.random() < 0.1 ? 5 : 1; // Example rarity system
+            const shell = {
+                x: Math.random() * (canvas.width - 20),
+                y: Math.random() * (canvas.height - 20),
+                size: 20,
+                image: `shell_${rarity}`, // Using rarity to pick the image
+                rarity: rarity
+            };
+            seashells.push(shell);
+            setTimeout(() => {
+                seashells = seashells.filter(s => s !== shell);
+                redrawGame();
+            }, rarity === 5 ? 5000 : 10000); // Rarity affects duration
+            redrawGame();
+        }
+
+        function initGame() {
+            player = { x: 50, y: 50, size: 30, image: 'player' };
+            setInterval(spawnSeashell, 3000); // Every 3 seconds
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            drawPlayer();
+            drawSeashells();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Load images and start the game
+        loadImages({
+            background: backgroundSprite,
+            player: playerSprite,
+            'shell_1': 'images/shell_1.png',
+            'shell_5': 'images/shell_5.png',
+            // Add more shell images as needed
+        }, setupGame);
+    </script>
+</body>
+</html>
