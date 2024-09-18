@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turtle Graphics with Color and Pen Control</title>
+    <style>
+        /* Basic page styles */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Main layout using Flexbox */
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Main content: Left for scripting, right for canvas */
+        #mainContent {
+            flex: 1;
+            display: flex;
+        }
+
+        /* Script editor on the left */
+        #leftPanel {
+            width: 25%;
+            max-width: 400px;
+            border-right: 1px solid #ccc;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Script editor area */
+        #scriptEditor {
+            flex: 1;
+            padding: 10px;
+        }
+
+        /* Script editor text area */
+        #scriptInput {
+            width: 100%;
+            height: 100%;
+            font-family: monospace;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: none;
+        }
+
+        /* Run script button */
+        #runScriptButton {
+            padding: 10px;
+            margin: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* Canvas area on the right */
+        #canvasContainer {
+            flex: 1;
+            position: relative;
+            background-color: #ffffff;
+        }
+
+        /* Turtle canvas */
+        #turtleCanvas {
+            width: 100%;
+            height: 100%;
+            background-color: #fff;
+        }
+
+        /* REPL at the bottom */
+        #replContainer {
+            height: 200px;
+            display: flex;
+            flex-direction: column;
+            border-top: 1px solid #ccc;
+        }
+
+        /* REPL output container (with button) */
+        #replOutputContainer {
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* REPL output area */
+        #replOutput {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        /* Button to save REPL content as procedure */
+        #saveReplButton {
+            padding: 10px;
+            margin: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            align-self: flex-end;
+        }
+
+        /* REPL input area */
+        #replInputContainer {
+            display: flex;
+            padding: 10px;
+            background-color: #e9e9e9;
+        }
+
+        /* Text input for REPL */
+        #replInput {
+            flex: 1;
+            padding: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: none;
+        }
+
+        /* Send REPL input */
+        #replSendButton {
+            padding: 10px;
+            margin-left: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="mainContent">
+    <div id="leftPanel">
+        <div id="scriptEditor">
+            <h3>Script Editor</h3>
+            <textarea id="scriptInput" placeholder="Write your turtle scripts here..."></textarea>
+        </div>
+        <button id="runScriptButton">Run Script</button>
+    </div>
+
+    <div id="canvasContainer">
+        <canvas id="turtleCanvas"></canvas>
+    </div>
+</div>
+
+<div id="replContainer">
+    <div id="replOutputContainer">
+        <div id="replOutput"></div>
+        <button id="saveReplButton">Save REPL as Procedure</button>
+    </div>
+    <div id="replInputContainer">
+        <textarea id="replInput" placeholder="Type commands here..."></textarea>
+        <button id="replSendButton">Send</button>
+    </div>
+</div>
+
+<script>
+    // Initialize the canvas and turtle
+    const canvas = document.getElementById('turtleCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Store the turtle's path (to avoid clearing it each time)
+    let turtlePath = [];
+
+    // Turtle object
+    const turtle = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        angle: 0, // Facing right by default
+        penDown: true,
+        penColor: '#000',
+        penWidth: 2,
+        commandsLog: [],
+
+        forward: function (distance) {
+            distance = parseFloat(distance);
+            const rad = (this.angle * Math.PI) / 180;
+            const newX = this.x + distance * Math.cos(rad);
+            const newY = this.y + distance * Math.sin(rad);
+
+            if (this.penDown) {
+                turtlePath.push({ x1: this.x, y1: this.y, x2: newX, y2: newY, color: this.penColor });
+            }
+
+            this.x = newX;
+            this.y = newY;
+            this.commandsLog.push(`forward(${distance})`);
+            redraw();
+        },
+
+        right: function (angle) {
+            this.angle = (this.angle + parseFloat(angle)) % 360;
+            this.commandsLog.push(`right(${angle})`);
+            redraw();
+        },
+
+        left: function (angle) {
+            this.angle = (this.angle - parseFloat(angle) + 360) % 360;
+            this.commandsLog.push(`left(${angle})`);
+            redraw();
+        },
+
+        penup: function () {
+            this.penDown = false;
+            this.commandsLog.push('penup()');
+        },
+
+        pendown: function () {
+            this.penDown = true;
+            this.commandsLog.push('pendown()');
+        },
+
+        changeColor: function (color) {
+            this.penColor = color;
+            this.commandsLog.push(`color(${color})`);
+        },
+
+        reset: function () {
+            turtlePath = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            this.x = canvas.width / 2;
+            this.y = canvas.height / 2;
+            this.angle = 0;
+            this.penDown = true;
+            this.penColor = '#000';
+            this.commandsLog = [];
+            redraw();
+        }
+    };
+
+    // Function to draw the turtle and its path
+    function redraw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw the turtle's path
+        turtlePath.forEach(line => {
+            ctx.beginPath();
+            ctx.moveTo(line.x1, line.y1);
+            ctx.lineTo(line.x2, line.y2);
+            ctx.strokeStyle = line.color;
+            ctx.lineWidth = turtle.penWidth;
+            ctx.stroke();
+        });
+
+        // Draw the turtle
+        drawTurtle();
+    }
+
+    // Function to draw the turtle
+    function drawTurtle() {
+        const x = turtle.x;
+        const y = turtle.y;
+        const angle = turtle.angle;
+
+        // Draw a triangle representing the turtle
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate((angle * Math.PI) / 180);
+
+        ctx.beginPath();
+        ctx.moveTo(15, 0); // Triangle tip (facing right by default)
+        ctx.lineTo(-10, -7);
+        ctx.lineTo(-10, 7);
+        ctx.closePath();
+        ctx.fillStyle = 'green';
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // Function to handle script running
+    document.getElementById('runScriptButton').addEventListener('click', function () {
+        const script = document.getElementById('scriptInput').value;
+        runScript(script);
+    });
+
+    // Handle REPL input
+    document.getElementById('replSendButton').addEventListener('click', function () {
+        const command = document.getElementById('replInput').value;
+        if (command.trim() !== '') {
+            addReplOutput(command);
+            runScript(command);
+            document.getElementById('replInput').value = '';
+        }
+    });
+
+    // Function to run the turtle commands
+    function runScript(script) {
+        const commands = script.split('\n').map(cmd => cmd.trim()).filter(cmd => cmd !== '');
+        commands.forEach(cmd => {
+            const tokens = cmd.split(/[()]/);
+            const command = tokens[0];
+            const arg = tokens[1];
+            if (typeof turtle[command] === 'function') {
+                turtle[command](arg);
+            }
+        });
+    }
+
+    // Add command to REPL output
+    function addReplOutput(text) {
+        const replOutput = document.getElementById('replOutput');
+        const outputLine = document.createElement('div');
+        outputLine.textContent = text;
+        replOutput.appendChild(outputLine);
+        replOutput.scrollTop = replOutput.scrollHeight;
+    }
+
+    // Save REPL commands as a new procedure
+    document.getElementById('saveReplButton').addEventListener('click', function () {
+        const replOutputDiv = document.getElementById('replOutput');
+        const commands = Array.from(replOutputDiv.children)
+            .map(div => div.textContent.trim())
+            .filter(line => line !== '');
+
+        if (commands.length === 0) {
+            alert('No commands in REPL output to save.');
+            return;
+        }
+
+        const procName = prompt('Enter a name for the new procedure:');
+        if (!procName) {
+            alert('Procedure name cannot be empty.');
+            return;
+        }
+
+        const procedureDefinition = `to ${procName}\n    ${commands.join('\n    ')}\nend\n`;
+        const scriptInput = document.getElementById('scriptInput');
+        scriptInput.value += `\n${procedureDefinition}`;
+        alert(`Procedure '${procName}' added to the script.`);
+    });
+
+    // Set canvas size on load
+    function initializeCanvas() {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        turtle.reset();
+    }
+
+    window.addEventListener('resize', initializeCanvas);
+    initializeCanvas();
+
+    // Keyboard controls for turtle movement and color changes
+    document.addEventListener('keydown', function (event) {
+        const key = event.key;
+        const distance = 10;
+        const angle = 15;
+
+        if (key === 'ArrowUp') {
+            turtle.forward(distance);
+            addReplOutput(`forward(${distance})`);
+        } else if (key === 'ArrowDown') {
+            turtle.forward(-distance);
+            addReplOutput(`forward(${-distance})`);
+        } else if (key === 'ArrowLeft') {
+            turtle.left(angle);
+            addReplOutput(`left(${angle})`);
+        } else if (key === 'ArrowRight') {
+            turtle.right(angle);
+            addReplOutput(`right(${angle})`);
+        } else if (key.toLowerCase() === 'u') {
+            turtle.penup();
+            addReplOutput(`penup()`);
+        } else if (key.toLowerCase() === 'd') {
+            turtle.pendown();
+            addReplOutput(`pendown()`);
+        } else if (key.toLowerCase() === 'r') {
+            turtle.changeColor('red');
+            addReplOutput(`color('red')`);
+        } else if (key.toLowerCase() === 'g') {
+            turtle.changeColor('green');
+            addReplOutput(`color('green')`);
+        } else if (key.toLowerCase() === 'b') {
+            turtle.changeColor('blue');
+            addReplOutput(`color('blue')`);
+        } else if (key.toLowerCase() === 'y') {
+            turtle.changeColor('yellow');
+            addReplOutput(`color('yellow')`);
+        } else if (key.toLowerCase() === 'p') {
+            turtle.changeColor('purple');
+            addReplOutput(`color('purple')`);
+        } else if (key.toLowerCase() === 'k') {
+            turtle.changeColor('black');
+            addReplOutput(`color('black')`);
+        }
+    });
+
+</script>
+
+</body>
+</html>
